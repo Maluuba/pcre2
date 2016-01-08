@@ -262,6 +262,14 @@
 #define SLJIT_UNUSED_ARG(arg) (void)arg
 #endif
 
+#ifndef SLJIT_HAS_BUILTIN
+#ifdef __has_builtin
+#define SLJIT_HAS_BUILTIN(x) __has_builtin(x)
+#else
+#define SLJIT_HAS_BUILTIN(x) 0
+#endif
+#endif
+
 /*********************************/
 /* Type of public API functions. */
 /*********************************/
@@ -286,7 +294,14 @@
 
 #ifndef SLJIT_CACHE_FLUSH
 
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if (__GNUC__ > 4 \
+     || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3) \
+     || SLJIT_HAS_BUILTIN(__builtin___clear_cache))
+
+#define SLJIT_CACHE_FLUSH(from, to) \
+        __builtin___clear_cache((char*)from, (char*)to)
+
+#elif (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 
 /* Not required to implement on archs with unified caches. */
 #define SLJIT_CACHE_FLUSH(from, to)
