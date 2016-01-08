@@ -1279,7 +1279,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void)
 	return SLJIT_IS_FPU_AVAILABLE;
 #elif defined(__GNUC__)
 	sljit_sw fir;
-	asm ("cfc1 %0, $0" : "=r"(fir));
+	__asm__ ("cfc1 %0, $0" : "=r"(fir));
 	return (fir >> 22) & 0x1;
 #else
 #error "FIR check is not implemented for this architecture"
