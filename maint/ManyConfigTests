@@ -16,10 +16,14 @@
 # -nojit          skip all JIT tests
 # -nojitmain      skip non-valgrind JIT tests
 # -nojitvalgrind  skip JIT tests with valgrind
-# -nomain         skip the main set of tests
-# -nomainvalgrind skip the non-JIT valgrind tests
+# -nomain         skip all the main (non-JIT) set of tests
+# -nomainvalgrind skip the main (non-JIT) valgrind tests
 # -notmp          skip the test in a temporary directory
-# -novalgrind     skip the valgrind tests
+# -novalgrind     skip all the valgrind tests
+
+# Alternatively, if any of those names are given with '+' instead of '-no',
+# only those groups named with '+' are run (e.g. +jit). If -dummy is given,
+# no tests are actually run - this provides a means of testing the selectors.
 
 # The -v option causes a call to 'pcre2test -C' to happen for each
 # configuration.
@@ -33,10 +37,29 @@ usemain=1
 usemainvalgrind=1
 usetmp=1
 usevalgrind=1
+
+dummy=0
+seenplus=0
 verbose=0
 
 while [ $# -gt 0 ] ; do
   case $1 in
+    +*) if [ $seenplus -eq 0 ]; then
+          useasan=0
+          useusan=0
+          usedebug=0
+          usejit=0
+          usejitvalgrind=0
+          usemain=0
+          usemainvalgrind=0
+          usetmp=0
+          seenplus=1
+        fi;;
+  esac
+
+  case $1 in
+    -dummy)          dummy=1;;
+    -v)              verbose=1;;
     -noasan)         useasan=0;;
     -nousan)         useusan=0;;
     -nodebug)        usedebug=0;;
@@ -47,7 +70,16 @@ while [ $# -gt 0 ] ; do
     -nomainvalgrind) usemainvalgrind=0;;
     -notmp)          usetmp=0;;
     -novalgrind)     usevalgrind=0;;
-    -v)              verbose=1;;
+    +asan)           useasan=1;;
+    +usan)           useusan=1;;
+    +debug)          usedebug=1;;
+    +jit)            usejit=1; usejitvalgrind=1;;
+    +jitmain)        usejit=1;;
+    +jitvalgrind)    usejitvalgrind=1;;
+    +main)           usemain=1; usemainvalgrind=1;;
+    +mainvalgrind)   usemainvalgrind=1;;
+    +tmp)            usetmp=1;;
+    +valgrind)       usevalgrind=1; usejitvalgrind=1; usemainvalgrind=1;;
     *)               echo "Unknown option '$1'"; exit 1;;
   esac
   shift
@@ -113,6 +145,8 @@ runtest()
     echo "[$testcount/$testtotal] Configuring with:"
     echo "  $opts"
   fi
+
+  if [ $dummy -eq 1 ]; then return; fi
 
   CFLAGS="$CFLAGS" \
     $srcdir/configure $opts >/dev/null 2>teststderrM
@@ -189,7 +223,7 @@ runtest()
 
   if [ "$jit" -gt 0 ]; then
     echo "Running JIT regression tests $withvalgrind"
-    $cvalgrind $srcdir/pcre2_jit_test >teststdoutM 2>teststderrM
+    $jrvalgrind $srcdir/pcre2_jit_test >teststdoutM 2>teststderrM
     if [ $? -ne 0 -o -s teststderrM ]; then
       echo " "
       echo "**** Test failed ****"
@@ -223,7 +257,7 @@ if [ $testtotal -eq 0 ] ; then
 fi
 
 valgrind=
-cvalgrind=
+jrvalgrind=
 withvalgrind=
 srcdir=.
 export srcdir
@@ -292,7 +326,7 @@ if [ $usemain -ne 0 ]; then
     "--disable-shared" \
     "--disable-unicode --disable-stack-for-recursion --disable-shared" \
     "--disable-stack-for-recursion --disable-shared --enable-never-backslash-C" \
-    "--with-link-size=3 --disable-shared" \
+    "--with-link-size=3 --disable-shared --disable-pcre2grep-callout" \
     "--disable-unicode --enable-rebuild-chartables --disable-shared" \
     "--disable-unicode --enable-newline-is-any --disable-shared" \
     "--disable-unicode --enable-newline-is-cr --disable-shared" \
@@ -340,7 +374,6 @@ fi
 if [ $usevalgrind -ne 0 ]; then
   echo "---------- Tests in the current directory using valgrind ----------"
   valgrind=valgrind
-  cvalgrind="valgrind -q --smc-check=all"
   withvalgrind="with valgrind"
 
   if [ $usemainvalgrind -ne 0 ]; then
@@ -355,6 +388,7 @@ if [ $usevalgrind -ne 0 ]; then
   fi
 
   if [ $usejitvalgrind -ne 0 ]; then
+    jrvalgrind="valgrind --tool=memcheck -q --smc-check=all-non-file --suppressions=$srcdir/testdata/valgrind-jit.supp" 
     for opts in \
       "--enable-jit --disable-shared" \
       "--enable-jit --enable-pcre2-16 --enable-pcre2-32"
@@ -366,7 +400,7 @@ if [ $usevalgrind -ne 0 ]; then
 fi
 
 valgrind=
-cvalgrind=
+jrvalgrind=
 withvalgrind=
 
 # Clean up the distribution and then do at least one build and test in a
