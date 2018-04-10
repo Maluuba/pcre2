@@ -122,6 +122,7 @@
 # 20-June-2014:      Updated for Unicode 7.0.0
 # 12-August-2014:    Updated to put Unicode version into the file
 # 19-June-2015:      Updated for Unicode 8.0.0
+# 02-July-2017:      Updated for Unicode 10.0.0
 ##############################################################################
 
 
@@ -236,7 +237,8 @@ def print_table(table, table_name, block_size = None):
                 fmt = "%3d," * ELEMS_PER_LINE + " /* U+%04X */"
                 mult = MAX_UNICODE / len(table)
                 for i in range(0, len(table), ELEMS_PER_LINE):
-                        print(fmt % (table[i:i+ELEMS_PER_LINE] + (i * mult,)))
+                        print(fmt % (table[i:i+ELEMS_PER_LINE] + 
+                          (int(i * mult),)))
         else:
                 if block_size > ELEMS_PER_LINE:
                         el = ELEMS_PER_LINE
@@ -334,7 +336,10 @@ script_names = ['Arabic', 'Armenian', 'Bengali', 'Bopomofo', 'Braille', 'Bugines
  'Pau_Cin_Hau', 'Siddham', 'Tirhuta', 'Warang_Citi',
 # New for Unicode 8.0.0
  'Ahom', 'Anatolian_Hieroglyphs', 'Hatran', 'Multani', 'Old_Hungarian',
- 'SignWriting'
+ 'SignWriting',
+# New for Unicode 10.0.0
+ 'Adlam', 'Bhaiksuki', 'Marchen', 'Newa', 'Osage', 'Tangut', 'Masaram_Gondi',
+ 'Nushu', 'Soyombo', 'Zanabazar_Square'
  ]
  
 category_names = ['Cc', 'Cf', 'Cn', 'Co', 'Cs', 'Ll', 'Lm', 'Lo', 'Lt', 'Lu',
@@ -342,7 +347,8 @@ category_names = ['Cc', 'Cf', 'Cn', 'Co', 'Cs', 'Ll', 'Lm', 'Lo', 'Lt', 'Lu',
   'Sc', 'Sk', 'Sm', 'So', 'Zl', 'Zp', 'Zs' ]
 
 break_property_names = ['CR', 'LF', 'Control', 'Extend', 'Prepend',
-  'SpacingMark', 'L', 'V', 'T', 'LV', 'LVT', 'Regional_Indicator', 'Other' ]
+  'SpacingMark', 'L', 'V', 'T', 'LV', 'LVT', 'Regional_Indicator', 'Other',
+  'E_Base', 'E_Modifier', 'E_Base_GAZ', 'ZWJ', 'Glue_After_Zwj' ]
 
 test_record_size()
 unicode_version = ""
@@ -484,6 +490,20 @@ print("const uint32_t PRIV(ucd_caseless_sets)[] = {0};")
 print("#else")
 print()
 print("const char *PRIV(unicode_version) = \"{}\";".format(unicode_version))
+print()
+print("/* If the 32-bit library is run in non-32-bit mode, character values")
+print("greater than 0x10ffff may be encountered. For these we set up a")
+print("special record. */")
+print()
+print("#if PCRE2_CODE_UNIT_WIDTH == 32")
+print("const ucd_record PRIV(dummy_ucd_record)[] = {{")
+print("  ucp_Common,    /* script */")
+print("  ucp_Cn,        /* type unassigned */")
+print("  ucp_gbOther,   /* grapheme break property */")
+print("  0,             /* case set */")
+print("  0,             /* other case */")
+print("  }};")
+print("#endif")
 print()
 print(record_struct)
 
